@@ -9,6 +9,9 @@ class Article:
         soup = BeautifulSoup(article_html, 'html5lib')
         self.title = soup.h1.string
         self.sub = []
+        self.tables = {}
+        self.figures = {}
+        self.references = {}
         flag = [0, 0, 0]  # [1, 1, 1] means that h2,h3,h4 all appear before respectly
         frag_sentence = ''
 
@@ -18,6 +21,13 @@ class Article:
             # print fragment['id']
 
             if fragment['id'] == 'frag_1':
+                h1_tag = fragment.h1
+                title_frag = ''
+                for child in h1_tag.contents:
+                    if type(child) == element.NavigableString:
+                        title_frag += child
+
+                self.title = title_frag
                 continue
 
             for element_tmp in fragment.contents:
@@ -34,6 +44,8 @@ class Article:
                 ####################################
 
                 if type(element_tmp) == element.Tag:
+                    # print element_tmp.attrs
+
                     if element_tmp.name == 'div' and 'class' in element_tmp.attrs:
                         if element_tmp['class'] == ['abstract', 'svAbstract', ''] or element_tmp['class'] == ['abstract', 'svAbstract']:
                             tmp_part_h2 = Part()
@@ -72,12 +84,13 @@ class Article:
                         if frag_sentence != '':
                             last_part.p.append(frag_sentence)
                             frag_sentence = ''
-
-                        tmp_part_h2 = Part()
-                        last_part = tmp_part_h2
-                        tmp_part_h2.title = element_tmp.string
-
-                        self.sub.append(tmp_part_h2)
+                        if 'reference' not in element_tmp.string.lower():
+                            tmp_part_h2 = Part()
+                            last_part = tmp_part_h2
+                            tmp_part_h2.title = element_tmp.string
+                            self.sub.append(tmp_part_h2)
+                        if 'reference' in element_tmp.string.lower():
+                            continue
                     if element_tmp.name == 'h3':
                         flag = [1, 1, 0]
                         if frag_sentence != '':
@@ -100,19 +113,25 @@ class Article:
                         tmp_part_h4.title = element_tmp.string
                         tmp_part_h3.sub.append(tmp_part_h4)
 
-                    # There are problems here, to be fixed
                     if element_tmp.name == 'dl' and 'class' in element_tmp.attrs:
                         if element_tmp['class'] == ['listitem']:
                             sentences_set = ''
                             for dd in element_tmp.find_all('dd'):
-                                for string_single in dd.p.contents:
-                                    if type(string_single) == element.NavigableString:
-                                        sentences_set += string_single
-                                    if type(string_single) == element.Tag:
-                                        if string_single.name == 'span':
-                                            sentences_set += '&&sy&&'
-                                        if string_single.name == 'div':
-                                            sentences_set += '&&eq&&'
+                                for child in dd.contents:
+                                    if child.name == 'p':
+                                        for child_p in child.contents:
+                                            if type(child_p) ==  element.NavigableString:
+                                                sentences_set += child_p
+                                            if type(child_p) == element.Tag:
+                                                if child_p.name == 'span':
+                                                    sentences_set += ' &&sy&& '
+                                    if child.name == 'div'and 'class' in child.attrs:
+                                        if child['class'] == ["formula"]:
+                                            sentences_set += ' &&eq&& '
+
+                                    if type(child) == element.NavigableString:
+                                        sentences_set += child
+
                             if flag == [1, 1, 1]:
                                 tmp_part_h4.p.append(sentences_set)
                             if flag == [1, 1, 0]:
@@ -125,26 +144,23 @@ class Article:
                             last_part.p.append(frag_sentence)
                             frag_sentence = ''
 
+                        sentences_set = ''
+                        for sub_element in element_tmp.contents:
+                            if type(sub_element) == element.NavigableString:
+                                sentences_set += sub_element.replace(u'\xa0', ' ')
+                            if type(sub_element) == element.Tag:
+                                if sub_element.name == 'span' and 'id' in sub_element.attrs:
+                                    sentences_set += ' &&' + sub_element['id'] + '&& '
+                                if sub_element.name == 'a' and 'id' in sub_element.attrs:
+                                    sentences_set += ' &&' + sub_element['id'] + '&& '
+                        if sentences_set == '':
+                            continue
+
                         if flag == [1, 1, 1]:
-                            sentences_set = ''
-                            for tmp_sentence in element_tmp.strings:
-                                sentences_set += tmp_sentence.replace(u'\xa0', ' ')
-                            if sentences_set == '':
-                                continue
                             tmp_part_h4.p.append(sentences_set)
                         if flag == [1, 1, 0]:
-                            sentences_set = ''
-                            for tmp_sentence in element_tmp.strings:
-                                sentences_set += tmp_sentence.replace(u'\xa0', ' ')
-                            if sentences_set == '':
-                                continue
                             tmp_part_h3.p.append(sentences_set)
                         if flag == [1, 0, 0]:
-                            sentences_set = ''
-                            for tmp_sentence in element_tmp.strings:
-                                sentences_set += tmp_sentence.replace(u'\xa0', ' ')
-                            if sentences_set == '':
-                                continue
                             tmp_part_h2.p.append(sentences_set)
 
                     if element_tmp.name == 'div' and 'class' in element_tmp.attrs:
@@ -154,18 +170,51 @@ class Article:
                             else:
                                 frag_sentence += ' &&eq&& '  # equation
 
+                        if element_tmp['class'] == [u'refText', u'svRefs']:
+                            for li in element_tmp.ol.contents:
+                                for reference_content in li.ul.contents:
+                                    if reference_content['class'] == ['author']:
+                                        reference_author = reference_content.string
+                                    if reference_content['class'] == ['title']:
+                                        reference_title = reference_content.string
+                                    if reference_content['class'] == ['source']:
+                                        reference_source = reference_content.string
+                                self.references[li['id']] = [reference_author, reference_title, reference_source]
+
                     if element_tmp.name == 'span' and 'class' in element_tmp.attrs:
                         if element_tmp['class'] == ["mathmlsrc"]:
                             frag_sentence += ' &&sy&& '  # symbol
 
+                    if element_tmp.name == 'div' and 'class' in element_tmp.attrs:
+                        if element_tmp['class'] == ['figTblUpiOuter', 'svArticle']:
+                            target = element_tmp.div.dl
+                            object_description = ''
+                            if 'id' in target.attrs:
+                                object_id = target['id']
+                                if object_id[0] == 'f':
+                                    for description_frag in target.strings:
+                                        object_description += description_frag
+                                    self.figures[object_id] = object_description
+                                if object_id[0] == 't':
+                                    for description_frag in target.dd.strings:
+                                        object_description += description_frag
+                                    self.tables[object_id] = object_description
+
                 if type(element_tmp) == element.NavigableString:
                     frag_sentence += element_tmp
                 if element_tmp.name == 'em':
-                    if element_tmp.string == None:
+                    if element_tmp.string is None:
                         continue
                     frag_sentence += element_tmp.string.replace(u'\xa0', ' ')
 
         # print '*************************'
+
+    def preprocess(self):
+        """
+
+        :return:
+        """
+
 
     def display_title(self):
         print self.title
@@ -202,6 +251,24 @@ class Article:
                 if para_h2 is None:
                     h2.p.remove(None)
 
+    def display_title(self):
+        print self.title
+
+    def display_tables_figures(self):
+        for k in self.tables:
+            print k
+            print self.tables[k]
+        for k in self.figures:
+            print k
+            print self.figures[k]
+        # print self.tables
+        # print self.figures
+
+    def display_references(self):
+        for k in self.references:
+            print k
+            print self.references[k][1]
+
 class Part:
     def __init__(self):
         self.level = 0
@@ -212,3 +279,12 @@ class Part:
         self.sub = []
         self.isNormal = 1
         self.keyword = []
+
+class Sentence:
+    def __init__(self):
+        self.original_form = ''
+        self.seperated_words_list = []
+        self.tfisf = {}
+        self.special_unit = []  # to store something like ' &&br00005&& '
+
+

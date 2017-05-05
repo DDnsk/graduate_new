@@ -8,6 +8,8 @@ def main(i):
     tmp_case = Article(open(path))
     tmp_case.clean()
     tmp_case.display_test()
+    # tmp_case.display_tables_figures()
+    # tmp_case.display_references()
 
 def statistic():
     count_down = 0
@@ -17,15 +19,16 @@ def statistic():
 
         try:
             tmp_case = Article(open(path))
+            tmp_case.display_title()
             # tmp_case.display_test()
         except:
             print '%d is down' % i
             count_down += 1
 
-    print 'there are 100 articles in total, %d is unable to process' %count_down
+    print 'there are 100 articles in total, %d is unable to process' % count_down
 
 
 if __name__ == '__main__':
-    # main(1)
-    statistic()
+    main(0)
+    # statistic()
 
