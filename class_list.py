@@ -4,14 +4,56 @@ import re
 from bs4 import BeautifulSoup, element
 import nltk
 
+def para2sentence(para):
+    """
+
+    :param para: paragraph as input
+    :return: a list, containing sentences as their original form
+    """
+    # split sentences using tools from nltk
+    sent_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+    sents = sent_tokenizer.tokenize(para)
+
+    # fix some unexpected sentence-splitting problems
+    sents_new = check_split_validity(sents)
+
+    return sents_new
+
+def check_split_validity(list_input):
+    """
+    Since sentence splitting results could be imperfect, this function help with fix some of the splitting problems.
+    (the appearance of 'i.e.' or 'Fig.' could result in unexpected splitting.)
+
+    :param list_input: Sentence splitting results as list, with the help of
+    nltk.data.load('tokenizers/punkt/english.pickle').
+    :return:list_output: A new sentence list, merging sentences that are split unexpectedly.
+    """
+    ept_list = ['fig.', 'eqs.', 'i.e.', 'eq.']  # to store the unexpected cases
+    list_output = []
+    flg = 0
+    for sentence in list_input:
+        if flg == 1:
+            sentence = tmp_s + sentence
+            flg = 0
+        for ept in ept_list:
+            if ept in sentence[-5:].lower():
+                tmp_s = sentence
+                flg = 1
+                break
+        if flg == 0:
+            list_output.append(sentence)
+    return list_output
+
 class Article:
     def __init__(self, article_html):
         soup = BeautifulSoup(article_html, 'html5lib')
+        self.sentence_formalized_list = []
         self.title = soup.h1.string
         self.sub = []
         self.tables = {}
         self.figures = {}
         self.references = {}
+        self.keywords = []
         flag = [0, 0, 0]  # [1, 1, 1] means that h2,h3,h4 all appear before respectly
         frag_sentence = ''
 
@@ -68,16 +110,16 @@ class Article:
 
                     if element_tmp.name == 'h2' and 'class' in element_tmp.attrs:
                         if element_tmp['class'] == ['svKeywords']:
-                            tmp_part_h2 = Part()
-                            last_part = tmp_part_h2
-                            tmp_part_h2.title = element_tmp.string
-                            tmp_part_h2.isNormal = 0
-                            self.sub.append(tmp_part_h2)
+                            # tmp_part_h2 = Part()
+                            # last_part = tmp_part_h2
+                            # tmp_part_h2.title = element_tmp.string
+                            # tmp_part_h2.isNormal = 0
+                            # self.sub.append(tmp_part_h2)
                             continue
 
                     if element_tmp.name == 'ul':
                         for li in element_tmp.contents:
-                            tmp_part_h2.keyword.append(li.span.string)
+                            self.keywords.append(li.span.string)
 
                     if element_tmp.name == 'h2':
                         flag = [1, 0, 0]
@@ -149,9 +191,16 @@ class Article:
                             if type(sub_element) == element.NavigableString:
                                 sentences_set += sub_element.replace(u'\xa0', ' ')
                             if type(sub_element) == element.Tag:
+                                # print sub_element.attrs
+                                if sub_element.name == 'span' and 'class' in sub_element.attrs:
+                                    if sub_element['class'] == [u'mathmlsrc']:
+                                        sentences_set += ' &&sy&& '  # symbol
+                                        continue
                                 if sub_element.name == 'span' and 'id' in sub_element.attrs:
+
                                     sentences_set += ' &&' + sub_element['id'] + '&& '
                                 if sub_element.name == 'a' and 'id' in sub_element.attrs:
+
                                     sentences_set += ' &&' + sub_element['id'] + '&& '
                         if sentences_set == '':
                             continue
@@ -209,12 +258,65 @@ class Article:
 
         # print '*************************'
 
-    def preprocess(self):
-        """
+    def preprocess_delete_empty_para(self):
+        for h2 in self.sub:
+            del_list = []
+            for paragraph in h2.p:
+                if paragraph == '':
+                    del_list.append(paragraph)
+            for paragraph in del_list:
+                h2.p.remove(paragraph)
+            for h3 in h2.sub:
+                del_list = []
+                for paragraph in h3.p:
+                    if paragraph == '':
+                        del_list.append(paragraph)
+                for paragraph in del_list:
+                    h3.p.remove(paragraph)
+                for h4 in h3.sub:
+                    del_list = []
+                    for paragraph in h4.p:
+                        if paragraph == '':
+                            del_list.append(paragraph)
+                    for paragraph in del_list:
+                        h4.p.remove(paragraph)
 
-        :return:
-        """
-
+    def preprocess_seperate_sentences(self):
+        for index_h2, h2 in enumerate(self.sub):
+            if index_h2 == 0:
+                continue
+            for index_h2_para, h2_para in enumerate(h2.p):
+                sents_new = para2sentence(h2_para)
+                for index_in_para, sentence_new in enumerate(sents_new):
+                    new_sentence_object = Sentence()
+                    new_sentence_object.original_form = sentence_new
+                    new_sentence_object.h2_index = index_h2
+                    new_sentence_object.para_index = index_h2_para
+                    new_sentence_object.in_para_index = index_in_para
+                    self.sentence_formalized_list.append(new_sentence_object)
+            for index_h3, h3 in enumerate(h2.sub):
+                for index_h3_para, h3_para in enumerate(h3.p):
+                    sents_new = para2sentence(h3_para)
+                    for index_in_para, sentence_new in enumerate(sents_new):
+                        new_sentence_object = Sentence()
+                        new_sentence_object.original_form = sentence_new
+                        new_sentence_object.h2_index = index_h2
+                        new_sentence_object.h3_index = index_h3
+                        new_sentence_object.para_index = index_h3_para
+                        new_sentence_object.in_para_index = index_in_para
+                        self.sentence_formalized_list.append(new_sentence_object)
+                for index_h4, h4 in enumerate(h3.sub):
+                    for index_h4_para, h4_para in enumerate(h4.p):
+                        sents_new = para2sentence(h4_para)
+                        for index_in_para, sentence_new in enumerate(sents_new):
+                            new_sentence_object = Sentence()
+                            new_sentence_object.original_form = sentence_new
+                            new_sentence_object.h2_index = index_h2
+                            new_sentence_object.h3_index = index_h3
+                            new_sentence_object.h4_index = index_h4
+                            new_sentence_object.para_index = index_h4_para
+                            new_sentence_object.in_para_index = index_in_para
+                            self.sentence_formalized_list.append(new_sentence_object)
 
     def display_title(self):
         print self.title
@@ -225,17 +327,17 @@ class Article:
             print item_h2.title
             for para_h2 in item_h2.p:
                 print para_h2.encode('utf-8')
-                print '*****'
+                print ''
             for item_h3 in item_h2.sub:
                 print item_h3.title
                 for para_h3 in item_h3.p:
                     print para_h3.encode('utf-8')
-                    print '*****'
+                    print ''
                 for item_h4 in item_h3.sub:
                     print item_h4.title
                     for para_h4 in item_h4.p:
                         print para_h4.encode('utf-8')
-                        print '*****'
+                        print ''
 
     def display_targetted(self, h2, h3, h4):
         """
@@ -255,6 +357,7 @@ class Article:
         print self.title
 
     def display_tables_figures(self):
+        print 'Tables and Figures are as follows:'
         for k in self.tables:
             print k
             print self.tables[k]
@@ -265,9 +368,15 @@ class Article:
         # print self.figures
 
     def display_references(self):
+        print 'References are as follows:'
         for k in self.references:
             print k
             print self.references[k][1]
+
+    def display_keywords(self):
+        print 'Keywords are as follows:'
+        for keyword in self.keywords:
+            print keyword
 
 class Part:
     def __init__(self):
@@ -282,6 +391,12 @@ class Part:
 
 class Sentence:
     def __init__(self):
+        self.h2_index = -1
+        self.h3_index = -1
+        self.h4_index = -1
+        self.para_index = -1
+        self.in_para_index = -1
+
         self.original_form = ''
         self.seperated_words_list = []
         self.tfisf = {}
