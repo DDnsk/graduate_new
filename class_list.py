@@ -3,10 +3,10 @@ __author__ = 'nsk'
 import re
 from bs4 import BeautifulSoup, element
 import nltk
+# import gensim
 
 def para2sentence(para):
     """
-
     :param para: paragraph as input
     :return: a list, containing sentences as their original form
     """
@@ -17,7 +17,14 @@ def para2sentence(para):
     # fix some unexpected sentence-splitting problems
     sents_new = check_split_validity(sents)
 
-    return sents_new
+    # clean the empty elements in the list
+    sents_new_final = []
+    for sentence in sents_new:
+        if len(sentence) < 3:
+            continue
+        sents_new_final.append(sentence)
+
+    return sents_new_final
 
 def check_split_validity(list_input):
     """
@@ -28,7 +35,7 @@ def check_split_validity(list_input):
     nltk.data.load('tokenizers/punkt/english.pickle').
     :return:list_output: A new sentence list, merging sentences that are split unexpectedly.
     """
-    ept_list = ['fig.', 'eqs.', 'i.e.', 'eq.']  # to store the unexpected cases
+    ept_list = ['fig.', 'eqs.', 'i.e.', 'eq.', 'e.g.', 'e.g']  # to store the unexpected cases
     list_output = []
     flg = 0
     for sentence in list_input:
@@ -42,11 +49,13 @@ def check_split_validity(list_input):
                 break
         if flg == 0:
             list_output.append(sentence)
+
     return list_output
 
 class Article:
     def __init__(self, article_html):
         soup = BeautifulSoup(article_html, 'html5lib')
+        self.para_list = []
         self.sentence_formalized_list = []
         self.title = soup.h1.string
         self.sub = []
@@ -286,9 +295,16 @@ class Article:
             if index_h2 == 0:
                 continue
             for index_h2_para, h2_para in enumerate(h2.p):
+                para_obj_tmp = Paragraph()
+                para_obj_tmp.h2 = h2.title
+                para_obj_tmp.h2_index = index_h2
+                para_obj_tmp.para_index = index_h2_para
+                self.para_list.append(para_obj_tmp)
                 sents_new = para2sentence(h2_para)
                 for index_in_para, sentence_new in enumerate(sents_new):
                     new_sentence_object = Sentence()
+                    new_sentence_object.h2 = h2.title
+                    para_obj_tmp.sentence_obj_list.append(new_sentence_object)
                     new_sentence_object.original_form = sentence_new
                     new_sentence_object.h2_index = index_h2
                     new_sentence_object.para_index = index_h2_para
@@ -296,9 +312,19 @@ class Article:
                     self.sentence_formalized_list.append(new_sentence_object)
             for index_h3, h3 in enumerate(h2.sub):
                 for index_h3_para, h3_para in enumerate(h3.p):
+                    para_obj_tmp = Paragraph()
+                    para_obj_tmp.h2 = h2.title
+                    para_obj_tmp.h3 = h3.title
+                    para_obj_tmp.h2_index = index_h2
+                    para_obj_tmp.h3_index = index_h3
+                    para_obj_tmp.para_index = index_h3_para
+                    self.para_list.append(para_obj_tmp)
                     sents_new = para2sentence(h3_para)
                     for index_in_para, sentence_new in enumerate(sents_new):
                         new_sentence_object = Sentence()
+                        new_sentence_object.h2 = h2.title
+                        new_sentence_object.h3 = h3.title
+                        para_obj_tmp.sentence_obj_list.append(new_sentence_object)
                         new_sentence_object.original_form = sentence_new
                         new_sentence_object.h2_index = index_h2
                         new_sentence_object.h3_index = index_h3
@@ -307,9 +333,22 @@ class Article:
                         self.sentence_formalized_list.append(new_sentence_object)
                 for index_h4, h4 in enumerate(h3.sub):
                     for index_h4_para, h4_para in enumerate(h4.p):
+                        para_obj_tmp = Paragraph()
+                        para_obj_tmp.h2 = h2.title
+                        para_obj_tmp.h3 = h3.title
+                        para_obj_tmp.h4 = h4.title
+                        para_obj_tmp.h2_index = index_h2
+                        para_obj_tmp.h3_index = index_h3
+                        para_obj_tmp.h4_index = index_h4
+                        para_obj_tmp.para_index = index_h4_para
+                        self.para_list.append(para_obj_tmp)
                         sents_new = para2sentence(h4_para)
                         for index_in_para, sentence_new in enumerate(sents_new):
                             new_sentence_object = Sentence()
+                            new_sentence_object.h2 = h2.title
+                            new_sentence_object.h3 = h3.title
+                            new_sentence_object.h4 = h4.title
+                            para_obj_tmp.sentence_obj_list.append(new_sentence_object)
                             new_sentence_object.original_form = sentence_new
                             new_sentence_object.h2_index = index_h2
                             new_sentence_object.h3_index = index_h3
@@ -347,7 +386,7 @@ class Article:
             for para in self.sub[h2].p:
                 print para
 
-    def clean(self):
+    def para_clean(self):
         for h2 in self.sub:
             for para_h2 in h2.p:
                 if para_h2 is None:
@@ -378,6 +417,18 @@ class Article:
         for keyword in self.keywords:
             print keyword
 
+    def display_seperated_words(self):
+        for sentence_obj in self.sentence_formalized_list:
+            print sentence_obj.seperated_words_list
+
+    def preprocess_sentence2words(self):
+        for sentence_obj in self.sentence_formalized_list:
+            sentence_obj.seperated_words_list = re.split(r'\s+', sentence_obj.original_form)
+
+    def display_para_obj(self):
+        for para_obj in self.para_list:
+            para_obj.display_content()
+
 class Part:
     def __init__(self):
         self.level = 0
@@ -391,15 +442,40 @@ class Part:
 
 class Sentence:
     def __init__(self):
-        self.h2_index = -1
-        self.h3_index = -1
-        self.h4_index = -1
-        self.para_index = -1
-        self.in_para_index = -1
+        self.h2 = ''
+        self.h3 = ''
+        self.h4 = ''
+        self.h2_index = -1  # h2 index
+        self.h3_index = -1  # h3 index
+        self.h4_index = -1  # h4 index
+        self.para_index = -1  # para index
+        self.in_para_index = -1  # in-para index 在段落中第几句话
 
         self.original_form = ''
         self.seperated_words_list = []
         self.tfisf = {}
         self.special_unit = []  # to store something like ' &&br00005&& '
 
+class Paragraph:
+    def __init__(self):
+        self.sentence_obj_list = []
+        self.h2 = ''
+        self.h3 = ''
+        self.h4 = ''
+        self.h2_index = -1  # h2 index
+        self.h3_index = -1  # h3 index
+        self.h4_index = -1  # h4 index
+        self.para_index = -1  # para index
 
+    def display_content(self):
+        print '####This is %d h2' % self.h2_index
+        print self.h2
+        if self.h3_index != -1:
+            print '###This is %d h3' % self.h3_index
+            print self.h3
+        if self.h4_index != -1:
+            print '##This is %d h4' % self.h4_index
+            print self.h4
+        print '#This is %d paragraph' % self.para_index
+        for sentence_obj in self.sentence_obj_list:
+            print sentence_obj.original_form

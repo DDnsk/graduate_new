@@ -6,16 +6,22 @@ from class_list import Article
 def main(i):
     path = 'article_done/article_'+str(i)+'.html'
     tmp_case = Article(open(path))
-    tmp_case.clean()
+    tmp_case.para_clean()
     tmp_case.preprocess_delete_empty_para()
     tmp_case.preprocess_seperate_sentences()
+    tmp_case.preprocess_sentence2words()
+
     # tmp_case.display_test()
     # tmp_case.display_tables_figures()
     # tmp_case.display_references()
-    # tmp_case.display_keywords()
-    for item in tmp_case.sentence_formalized_list:
-        print 'the h2 index is %d' % item.h2_index
-        print item.original_form
+    # # tmp_case.display_keywords()
+    # tmp_case.display_seperated_words()
+    # for item in tmp_case.sentence_formalized_list:
+    #     print 'the h2 index is %d' % item.h2_index
+    #     print item.original_form
+    # tmp_case.display_references()
+
+    tmp_case.display_para_obj()
 
 
 def statistic():
