@@ -423,7 +423,8 @@ class Article:
 
     def preprocess_sentence2words(self):
         for sentence_obj in self.sentence_formalized_list:
-            sentence_obj.seperated_words_list = re.split(r'\s+', sentence_obj.original_form)
+            # sentence_obj.seperated_words_list = re.split(r'\s+', sentence_obj.original_form)
+            sentence_obj.sentence2words()
 
     def display_para_obj(self):
         for para_obj in self.para_list:
@@ -453,8 +454,17 @@ class Sentence:
 
         self.original_form = ''
         self.seperated_words_list = []
+        self.words_list_without_stopword = []
         self.tfisf = {}
         self.special_unit = []  # to store something like ' &&br00005&& '
+        self.pos_list = []
+
+    def sentence2words(self):
+        # self.seperated_words_list = re.split(r'\s+', self.original_form)
+        self.seperated_words_list = nltk.word_tokenize(self.original_form)
+        self.pos_list = nltk.pos_tag(self.seperated_words_list)
+        self.words_list_without_stopword = [w for w in self.seperated_words_list if(w.lower() not in nltk.corpus.stopwords.words('english'))]
+        self.words_list_without_stopword = [w for w in self.words_list_without_stopword if(w not in [',','.',':',';','?','(',')','[',']','!','*','@','#','$'])]
 
 class Paragraph:
     def __init__(self):
@@ -479,3 +489,6 @@ class Paragraph:
         print '#This is %d paragraph' % self.para_index
         for sentence_obj in self.sentence_obj_list:
             print sentence_obj.original_form
+            # print sentence_obj.seperated_words_list
+            print sentence_obj.pos_list
+            print sentence_obj.words_list_without_stopword
