@@ -26,6 +26,7 @@ def para2sentence(para):
 
     return sents_new_final
 
+
 def check_split_validity(list_input):
     """
     Since sentence splitting results could be imperfect, this function help with fix some of the splitting problems.
@@ -51,6 +52,7 @@ def check_split_validity(list_input):
             list_output.append(sentence)
 
     return list_output
+
 
 class Article:
     def __init__(self, article_html):
@@ -430,6 +432,46 @@ class Article:
         for para_obj in self.para_list:
             para_obj.display_content()
 
+    def preprocess_tables_figures(self):
+        """
+        Original list of tables and figures are messy, need cleanning
+        :return:
+        """
+
+        for k in self.figures:
+            self.figures[k] = self.figures[k].split('.')[2].strip()
+        for k in self.tables:
+            self.tables[k] = self.tables[k].split('.')[1].strip()
+
+    def preprocess_extract_special_elements(self):
+
+        # initialization of three parameters
+        token_of_reference = 'xxx'
+        token_of_table = 'xxx'
+        token_of_figure = 'xxx'
+
+        if len(self.figures) != 0:
+            token_of_figure = self.figures.keys()[0][0:2]
+        if len(self.tables) != 0:
+            token_of_table = self.tables.keys()[0][0:2]
+        if len(self.references) != 0:
+            token_of_reference = self.references.keys()[0][0:2]
+
+        for sentence_obj in self.sentence_formalized_list:
+            match = re.findall(r'&&\w{2,10}&&', sentence_obj.original_form)
+            sentence_obj.original_form_without_special_elements = sentence_obj.original_form
+            if match:
+                for special_elements in match:  # special_element: '&&bbr000150&&'
+                    special_elements_clean = special_elements.replace('&&', '')  # special_element: 'bbr000150'
+                    if token_of_figure in special_elements_clean:
+                        sentence_obj.figures.append(special_elements_clean[1:])
+                    if token_of_table in special_elements_clean:
+                        sentence_obj.tables.append(special_elements_clean[1:])
+                    if token_of_reference in special_elements_clean:
+                        sentence_obj.references.append(special_elements_clean[1:])
+                    sentence_obj.original_form_without_special_elements = sentence_obj.original_form_without_special_elements.replace(special_elements, '')
+
+
 class Part:
     def __init__(self):
         self.level = 0
@@ -441,8 +483,10 @@ class Part:
         self.isNormal = 1
         self.keyword = []
 
+
 class Sentence:
     def __init__(self):
+        # position information
         self.h2 = ''
         self.h3 = ''
         self.h4 = ''
@@ -452,19 +496,26 @@ class Sentence:
         self.para_index = -1  # para index
         self.in_para_index = -1  # in-para index 在段落中第几句话
 
+        #
         self.original_form = ''
+        self.original_form_without_special_elements = ''
         self.seperated_words_list = []
         self.words_list_without_stopword = []
         self.tfisf = {}
-        self.special_unit = []  # to store something like ' &&br00005&& '
-        self.pos_list = []
+        self.pos_list = []  # results after POS tagging
+
+        # special elements
+        self.references = []
+        self.tables = []
+        self.figures = []
 
     def sentence2words(self):
         # self.seperated_words_list = re.split(r'\s+', self.original_form)
-        self.seperated_words_list = nltk.word_tokenize(self.original_form)
+        self.seperated_words_list = nltk.word_tokenize(self.original_form_without_special_elements)
         self.pos_list = nltk.pos_tag(self.seperated_words_list)
         self.words_list_without_stopword = [w for w in self.seperated_words_list if(w.lower() not in nltk.corpus.stopwords.words('english'))]
         self.words_list_without_stopword = [w for w in self.words_list_without_stopword if(w not in [',','.',':',';','?','(',')','[',']','!','*','@','#','$'])]
+
 
 class Paragraph:
     def __init__(self):
@@ -489,6 +540,10 @@ class Paragraph:
         print '#This is %d paragraph' % self.para_index
         for sentence_obj in self.sentence_obj_list:
             print sentence_obj.original_form
-            # print sentence_obj.seperated_words_list
+            print sentence_obj.original_form_without_special_elements
+            print sentence_obj.seperated_words_list
             print sentence_obj.pos_list
             print sentence_obj.words_list_without_stopword
+            print sentence_obj.references
+            print sentence_obj.tables
+            print sentence_obj.figures

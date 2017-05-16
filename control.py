@@ -11,8 +11,14 @@ def main(end):
             tmp_case.para_clean()
             tmp_case.preprocess_delete_empty_para()
             tmp_case.preprocess_seperate_sentences()
+            tmp_case.preprocess_extract_special_elements()
             tmp_case.preprocess_sentence2words()
+            tmp_case.preprocess_tables_figures()  # clean unexpected tokens
+
+            # display output
             tmp_case.display_para_obj()
+            # tmp_case.display_references()
+            # tmp_case.display_tables_figures()
         except:
             print 'error'
 
@@ -82,6 +88,6 @@ def get_valid_index_final():
     return valid_index_final
 
 if __name__ == '__main__':
-    main(1)
+    main(2)
 
 
