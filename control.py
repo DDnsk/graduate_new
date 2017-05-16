@@ -15,6 +15,8 @@ def main(end):
             tmp_case.preprocess_sentence2words()
             tmp_case.preprocess_tables_figures()  # clean unexpected tokens
 
+            tmp_case.preprocess_tfisf()
+
             # display output
             tmp_case.display_para_obj()
             # tmp_case.display_references()

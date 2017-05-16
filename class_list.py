@@ -1,6 +1,7 @@
 # coding=utf-8
 __author__ = 'nsk'
 import re
+import math
 from bs4 import BeautifulSoup, element
 import nltk
 # import gensim
@@ -471,6 +472,27 @@ class Article:
                         sentence_obj.references.append(special_elements_clean[1:])
                     sentence_obj.original_form_without_special_elements = sentence_obj.original_form_without_special_elements.replace(special_elements, '')
 
+    def preprocess_tfisf(self):
+        matrix_tmp = {}
+        article_length = len(self.sentence_formalized_list)
+        for index_sentence, sentence_obj in enumerate(self.sentence_formalized_list):
+            for word in sentence_obj.words_list_without_stopword:
+                if word in matrix_tmp:
+                    matrix_tmp[word][index_sentence] += 1
+                if word not in matrix_tmp:
+                    matrix_tmp[word] = [0] * article_length
+                    matrix_tmp[word][index_sentence] = 1
+        for index_sentence, sentence_obj in enumerate(self.sentence_formalized_list):
+            for word in sentence_obj.words_list_without_stopword:
+                sentence_obj.tf[word] = matrix_tmp[word][index_sentence]
+                # calculate sentence_obj.isf[word], to count numbers of 0s and None_0s.
+                count = 0  # number of sentences that have this word
+                for i in matrix_tmp[word]:
+                    if i != 0:
+                        count += 1
+                isf = float(article_length)/float(count)
+                isf = math.log(isf)
+                sentence_obj.isf[word] = isf
 
 class Part:
     def __init__(self):
@@ -501,7 +523,8 @@ class Sentence:
         self.original_form_without_special_elements = ''
         self.seperated_words_list = []
         self.words_list_without_stopword = []
-        self.tfisf = {}
+        self.tf = {}
+        self.isf = {}
         self.pos_list = []  # results after POS tagging
 
         # special elements
@@ -547,3 +570,5 @@ class Paragraph:
             print sentence_obj.references
             print sentence_obj.tables
             print sentence_obj.figures
+            print sentence_obj.tf
+            print sentence_obj.isf
