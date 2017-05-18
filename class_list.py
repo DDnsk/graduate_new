@@ -442,7 +442,8 @@ class Article:
         for k in self.figures:
             self.figures[k] = self.figures[k].split('.')[2].strip()
         for k in self.tables:
-            self.tables[k] = self.tables[k].split('.')[1].strip()
+            if self.table[k].strip() != '':
+                self.tables[k] = self.tables[k].split('.')[1].strip()
 
     def preprocess_extract_special_elements(self):
 
@@ -470,6 +471,8 @@ class Article:
                         sentence_obj.tables.append(special_elements_clean[1:])
                     if token_of_reference in special_elements_clean:
                         sentence_obj.references.append(special_elements_clean[1:])
+                    if token_of_figure not in special_elements_clean and token_of_table not in special_elements_clean and token_of_reference not in special_elements_clean:
+                        sentence_obj.internal_references += 1
                     sentence_obj.original_form_without_special_elements = sentence_obj.original_form_without_special_elements.replace(special_elements, '')
 
     def preprocess_tfisf(self):
@@ -493,6 +496,18 @@ class Article:
                 isf = float(article_length)/float(count)
                 isf = math.log(isf)
                 sentence_obj.isf[word] = isf
+
+    def paragraph_obj2file(self, i):
+        """
+        Put paragraph to file, so that it is easy to manually annotation.
+        """
+        file_path = 'for_manually_annotation_' + str(i) + '.txt'
+        file_output = open(file_path, 'w')
+        for para_obj in self.para_list:
+            para_obj.extract_feature()
+            line = para_obj.para2line()
+            file_output.write(line)
+
 
 class Part:
     def __init__(self):
@@ -531,6 +546,7 @@ class Sentence:
         self.references = []
         self.tables = []
         self.figures = []
+        self.internal_references = 0
 
     def sentence2words(self):
         # self.seperated_words_list = re.split(r'\s+', self.original_form)
@@ -550,6 +566,14 @@ class Paragraph:
         self.h3_index = -1  # h3 index
         self.h4_index = -1  # h4 index
         self.para_index = -1  # para index
+
+        self.tables = 0
+        self.figures = 0
+        self.references = 0
+        self.internal_references = 0
+        self.number_of_sentences = 0
+        self.length = 0
+        self.content = ''
 
     def display_content(self):
         print '####This is %d h2' % self.h2_index
@@ -572,3 +596,24 @@ class Paragraph:
             print sentence_obj.figures
             print sentence_obj.tf
             print sentence_obj.isf
+
+    def extract_feature(self):
+        for sentence_obj in self.sentence_obj_list:
+            self.figures += len(sentence_obj.figures)
+            self.tables += len(sentence_obj.tables)
+            self.references += len(sentence_obj.references)
+            self.internal_references += sentence_obj.internal_references
+            self.number_of_sentences += 1
+            self.length += len(sentence_obj.seperated_words_list)
+            self.content += sentence_obj.original_form.encode('GB18030')
+        return
+
+    def para2line(self):
+        split_token = '#'
+        line = str(self.h2) + split_token + str(self.h2_index) + split_token + str(self.h3) + split_token \
+               + str(self.h3_index) + split_token + str(self.h4) + split_token + str(self.h4_index) + split_token +\
+            str(self.figures) + split_token + str(self.tables) + split_token + str(self.references) + split_token +\
+            str(self.internal_references) + split_token + str(self.number_of_sentences) + split_token +\
+            str(self.length) + split_token + str(self.content) + '\n'
+        return line
+

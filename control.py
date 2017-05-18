@@ -1,11 +1,18 @@
 # coding=utf-8
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 __author__ = 'nsk'
+# import sklearn
+import logging
 
 from class_list import Article
 
+
 def main(end):
+    valid_list = get_valid_index_final()
     for i in range(0, end):
-        path = 'article_done/article_'+str(i)+'.html'
+        path = 'article_done/article_'+str(valid_list[i])+'.html'
         try:
             tmp_case = Article(open(path))
             tmp_case.para_clean()
@@ -14,15 +21,15 @@ def main(end):
             tmp_case.preprocess_extract_special_elements()
             tmp_case.preprocess_sentence2words()
             tmp_case.preprocess_tables_figures()  # clean unexpected tokens
-
             tmp_case.preprocess_tfisf()
+            tmp_case.paragraph_obj2file(i)
 
             # display output
-            tmp_case.display_para_obj()
+            # tmp_case.display_para_obj()
             # tmp_case.display_references()
             # tmp_case.display_tables_figures()
         except:
-            print 'error'
+            logging.exception("exception")
 
 def statistic(valid_index_list):
     count_down = 0
@@ -85,11 +92,10 @@ def get_valid_index_final():
     valid_index_final = []
     for line in file_tmp.readlines():
         index_now = int(line.strip())
-        print index_now
         valid_index_final.append(index_now)
     return valid_index_final
 
 if __name__ == '__main__':
-    main(2)
+    main(21)
 
 
