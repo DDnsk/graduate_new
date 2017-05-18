@@ -442,7 +442,7 @@ class Article:
         for k in self.figures:
             self.figures[k] = self.figures[k].split('.')[2].strip()
         for k in self.tables:
-            if self.table[k].strip() != '':
+            if self.tables[k].strip() != '':
                 self.tables[k] = self.tables[k].split('.')[1].strip()
 
     def preprocess_extract_special_elements(self):
@@ -605,7 +605,7 @@ class Paragraph:
             self.internal_references += sentence_obj.internal_references
             self.number_of_sentences += 1
             self.length += len(sentence_obj.seperated_words_list)
-            self.content += sentence_obj.original_form.encode('GB18030')
+            self.content += sentence_obj.original_form.encode('GB18030').strip()
         return
 
     def para2line(self):
