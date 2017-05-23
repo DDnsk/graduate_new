@@ -508,6 +508,18 @@ class Article:
             line = para_obj.para2line()
             file_output.write(line)
 
+    def preprocess_para_extract_features(self):
+        """
+        paragraph to vector, for decision tree
+        """
+        vector_list = []
+        feature_name_list = ['h2_index', 'h3_index', 'h4_index', 'h2_title_is_background', 'h2_title_is_conclusion',\
+                             'num_of_figures', 'num_of_tables', 'num_of_references', 'num_of_internal_references', \
+                             'num_of_sentences', 'length', 'para_index']
+        for para_obj in self.para_list:
+            vector_list.append(para_obj.extract_feature())
+        return vector_list, feature_name_list
+
 
 class Part:
     def __init__(self):
@@ -598,6 +610,10 @@ class Paragraph:
             print sentence_obj.isf
 
     def extract_feature(self):
+
+        background_title_keyword_list = ['background', 'review', 'relate']
+        conclusion_title_keyword_list = ['conclusion']
+
         for sentence_obj in self.sentence_obj_list:
             self.figures += len(sentence_obj.figures)
             self.tables += len(sentence_obj.tables)
@@ -606,7 +622,36 @@ class Paragraph:
             self.number_of_sentences += 1
             self.length += len(sentence_obj.seperated_words_list)
             self.content += sentence_obj.original_form.encode('GB18030').strip()
-        return
+
+        vector = []
+        vector.append(self.h2_index)
+        vector.append(self.h3_index)
+        vector.append(self.h4_index)
+        for term in background_title_keyword_list:
+            if term in self.h2.lower():
+                vector.append(1)
+                break
+            if term not in self.h2.lower():
+                vector.append(0)
+                break
+        for term in conclusion_title_keyword_list:
+            if term in self.h2.lower():
+                vector.append(1)
+                break
+            if term not in self.h2.lower():
+                vector.append(0)
+                break
+        vector.append(self.figures)
+        vector.append(self.tables)
+        vector.append(self.references)
+        vector.append(self.internal_references)
+        vector.append(self.number_of_sentences)
+        vector.append(self.length)
+        vector.append(self.para_index)
+
+        # adding paragraph numbers for each title, using relative index(fraction) to represent the position
+
+        return vector
 
     def para2line(self):
         split_token = '#'
@@ -616,4 +661,8 @@ class Paragraph:
             str(self.internal_references) + split_token + str(self.number_of_sentences) + split_token +\
             str(self.length) + split_token + str(self.content) + '\n'
         return line
+
+    def display_content_slim(self):
+        for sentence_obj in self.sentence_obj_list:
+            print sentence_obj.original_form
 
