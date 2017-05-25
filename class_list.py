@@ -4,6 +4,7 @@ import re
 import math
 from bs4 import BeautifulSoup, element
 import nltk
+from nltk.stem.snowball import SnowballStemmer
 # import gensim
 
 def para2sentence(para):
@@ -479,14 +480,14 @@ class Article:
         matrix_tmp = {}
         article_length = len(self.sentence_formalized_list)
         for index_sentence, sentence_obj in enumerate(self.sentence_formalized_list):
-            for word in sentence_obj.words_list_without_stopword:
+            for word in sentence_obj.words_list_stem:
                 if word in matrix_tmp:
                     matrix_tmp[word][index_sentence] += 1
                 if word not in matrix_tmp:
                     matrix_tmp[word] = [0] * article_length
                     matrix_tmp[word][index_sentence] = 1
         for index_sentence, sentence_obj in enumerate(self.sentence_formalized_list):
-            for word in sentence_obj.words_list_without_stopword:
+            for word in sentence_obj.words_list_stem:
                 sentence_obj.tf[word] = matrix_tmp[word][index_sentence]
                 # calculate sentence_obj.isf[word], to count numbers of 0s and None_0s.
                 count = 0  # number of sentences that have this word
@@ -516,9 +517,30 @@ class Article:
         feature_name_list = ['h2_index', 'h3_index', 'h4_index', 'h2_title_is_background', 'h2_title_is_conclusion',\
                              'num_of_figures', 'num_of_tables', 'num_of_references', 'num_of_internal_references', \
                              'num_of_sentences', 'length', 'para_index']
+        feature_name_list_no_fig_tab_ref = ['h2_index', 'h3_index', 'h4_index', 'h2_title_is_background', 'h2_title_is_conclusion',\
+                             'num_of_figures', 'num_of_tables', 'num_of_references', 'num_of_internal_references', \
+                             'num_of_sentences', 'length', 'para_index']
         for para_obj in self.para_list:
             vector_list.append(para_obj.extract_feature())
         return vector_list, feature_name_list
+
+    def fullfill_ref_tab_fig(self):
+        for sentence_obj in self.sentence_formalized_list:
+            for ref in sentence_obj.references:
+                if self.references.has_key(ref):
+                    sentence_obj.original_form_without_special_elements += ' '
+                    sentence_obj.original_form_without_special_elements += self.references[ref][0]
+                    print 'ref:'+ref
+            for fig in sentence_obj.figures:
+                if self.figures.has_key(fig):
+                    sentence_obj.original_form_without_special_elements += ' '
+                    sentence_obj.original_form_without_special_elements += self.figures[fig]
+                    print 'fig:'+fig
+            for tab in sentence_obj.tables:
+                if self.tables.has_key(tab):
+                    sentence_obj.original_form_without_special_elements += ' '
+                    sentence_obj.original_form_without_special_elements += self.tables[tab]
+                    print 'tab:'+tab
 
 
 class Part:
@@ -531,7 +553,6 @@ class Part:
         self.sub = []
         self.isNormal = 1
         self.keyword = []
-
 
 class Sentence:
     def __init__(self):
@@ -550,6 +571,7 @@ class Sentence:
         self.original_form_without_special_elements = ''
         self.seperated_words_list = []
         self.words_list_without_stopword = []
+        self.words_list_stem = []
         self.tf = {}
         self.isf = {}
         self.pos_list = []  # results after POS tagging
@@ -561,12 +583,13 @@ class Sentence:
         self.internal_references = 0
 
     def sentence2words(self):
+        stemmer = SnowballStemmer('english')
         # self.seperated_words_list = re.split(r'\s+', self.original_form)
         self.seperated_words_list = nltk.word_tokenize(self.original_form_without_special_elements)
         self.pos_list = nltk.pos_tag(self.seperated_words_list)
         self.words_list_without_stopword = [w for w in self.seperated_words_list if(w.lower() not in nltk.corpus.stopwords.words('english'))]
         self.words_list_without_stopword = [w for w in self.words_list_without_stopword if(w not in [',','.',':',';','?','(',')','[',']','!','*','@','#','$'])]
-
+        self.words_list_stem = [stemmer.stem(w) for w in self.words_list_without_stopword]
 
 class Paragraph:
     def __init__(self):
